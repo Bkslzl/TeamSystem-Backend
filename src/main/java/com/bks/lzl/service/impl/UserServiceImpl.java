@@ -53,26 +53,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (userPassword.length() < 8 || checkPassword.length() < 8) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户密码过短");
         }
-        // 账户不能包含特殊字符
         String validPattern = "[`~!@#$%^&*()+=|{}':;',\\\\[\\\\].<>/?~！@#￥%……&*（）——+|{}【】‘；：”“’。，、？]";
         Matcher matcher = Pattern.compile(validPattern).matcher(userAccount);
         if (matcher.find()) {
             return -1;
         }
-        // 密码和校验密码相同
         if (!userPassword.equals(checkPassword)) {
             return -1;
         }
-        // 账户不能重复
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount", userAccount);
         long count = userMapper.selectCount(queryWrapper);
         if (count > 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号重复");
         }
-        // 2. 加密
         String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
-        // 3. 插入数据
         User user = new User();
         user.setUserAccount(userAccount);
         user.setUserPassword(encryptPassword);
@@ -157,9 +152,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         for (String tag : tagNameList) {
             queryWrapper.like("tags", tag);
         }
-        // 正确的分页构造方法：Page<>(pageNum, pageSize)
         Page<User> page = new Page<>(pageNum, pageSize);
-        // 使用 this.page() 方法执行分页查询
         return this.page(page, queryWrapper);
     }
 
@@ -169,8 +162,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         if (userId <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        // 如果是管理员，允许更新任意用户
-        // 如果不是管理员，只允许更新当前（自己的）信息
         if (!isAdmin(loginUser) && userId != loginUser.getId()) {
             throw new BusinessException(ErrorCode.NO_AUTH);
         }
@@ -214,13 +205,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
         queryWrapper.isNotNull("tags");
         List<User> userList = this.list(queryWrapper);
 
-        // 获取当前用户的标签
         User currentuser = userMapper.selectById(loginUser.getId());
         String tags = currentuser.getTags();
         Gson gson = new Gson();
         List<String> tagList = gson.fromJson(tags, new TypeToken<List<String>>() {}.getType());
 
-        // 使用优先队列维护 TOP N 用户
         PriorityQueue<Pair<User, Long>> priorityQueue = new PriorityQueue<>((a, b) -> (int) (b.getValue() - a.getValue()));
 
         for (User user : userList) {
@@ -239,12 +228,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             }
         }
 
-        // 提取 TOP N 用户
         List<User> finalUserList = new ArrayList<>();
         while (!priorityQueue.isEmpty()) {
             finalUserList.add(priorityQueue.poll().getKey());
         }
-        Collections.reverse(finalUserList); // 按编辑距离从小到大排序
+        Collections.reverse(finalUserList);
 
         return finalUserList;
     }
@@ -255,8 +243,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
-        // 拼接 and 查询
-        // like '%Java%' and like '%Python%'
         for (String tagName : tagNameList) {
             queryWrapper = queryWrapper.like("tags", tagName);
         }
